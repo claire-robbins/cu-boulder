@@ -1,0 +1,85 @@
+---
+title: "NYPD Shooting Incident Data (Historic)"
+author: "Claire Robbins"
+date: '2022-06-07'
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+library(dplyr)
+library(tidyverse)
+library(lubridate)
+library(stringr)
+library(ggplot2)
+```
+
+## R Markdown
+
+```{r import_data}
+data <- read_csv("https://data.cityofnewyork.us/api/views/833y-fsy8/rows.csv?accessType=DOWNLOAD")
+```
+
+```{text}
+The first visualization I chose to explore is a visual representation of the time of
+incident across each burrow. Although there did not seem to be a significant
+difference between each of the burrows, it was a good first step in data
+exploration.
+```
+
+```{r visualization_1}
+data %>% ggplot(aes(x=BORO, y=OCCUR_TIME)) +
+  geom_boxplot() +
+  labs(title = 'Incident By Burrow On A 24-Hour Scale',
+    x = 'Burrow', y = 'Time of Incident')
+```
+
+```{text}
+The second visualization I created was a scatterplot of latitude vs longitude,
+broken down by victim age group. The goal of this visualization was to see if there
+is any obvious correlation between location and victim age, but the plot was
+generally overwhelmed by the 25-44 age group. Although initially unintended, you can
+see a fairly clear representation of each of the burrows as a function of longitude
+and latitude.
+```
+
+```{r visualization_2}
+data %>% ggplot(aes(Latitude, Longitude, color=VIC_AGE_GROUP)) +
+  geom_point(alpha=0.75, size=0.5) +
+  labs(title = 'Incident Location By Victim Age Group') +
+  scale_colour_discrete(name="Victim Age Group")
+```
+
+```{text}
+The analysis and linear model I chose to explore was distance from Times Square, as
+a function of time of incident. I predicted that incidents would increase closer to
+the heart of the city, such as Times Square, in the late night and early morning.
+However, with such an overwhelming amount of incidents across the different burrows,
+there was no real correlation between distance from times square and time of
+incident. You can clearly see a minimization of incidents between 7 and 9am.
+```
+
+```{r linear_model}
+data$LAT_FROM_TISQ <- 40.7580 - data$Latitude
+data$LON_FROM_TISQ <- -73.9855 - data$Longitude
+data$DIST_FROM_TISQ <- sqrt(data$LAT_FROM_TISQ**2 + data$LON_FROM_TISQ**2)
+
+mod <- lm(DIST_FROM_TISQ ~ OCCUR_TIME, data = data)
+summary(mod)
+
+predict <- data %>% mutate(pred = predict(mod))
+
+predict %>% ggplot() +
+  geom_point(aes(x = OCCUR_TIME, y = DIST_FROM_TISQ), color = "blue") +
+  geom_point(aes(x = OCCUR_TIME, y = pred), color = "red") +
+  labs(title = 'Correlation Between Time of Incident and Distance From Times Square',
+    x = 'Time of Incident', y = 'Distance From Times Square in Degrees')
+```
+
+```{text}
+I imagine there to be bias in the Statistical Murder Flag column, as that is based
+in subjectivity and policy on policing and safety. I focused my analysis primarily
+on time and location, which are two minimally biased metrics. Depending on how the
+data was collected, there could be bias in variables such as race, location
+description, and binary sex.
+```
